@@ -18,8 +18,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "weev"
+name = "mutex_trait2"
 version = "0.1.0"
+
+[[package]]
+name = "weev"
+version = "0.2.0"
 dependencies = [
  "embedded-io-async",
+ "mutex_trait2",
 ]

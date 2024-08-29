@@ -1,0 +1,12 @@
+[package]
+name = "mutex_trait2"
+version = "0.1.0"
+edition = "2021"
+description = "Generic mutex trait"
+license = "CC0-1.0"
+
+[dependencies]
+
+[features]
+std=["alloc"]
+alloc=[]
