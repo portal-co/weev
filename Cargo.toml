@@ -17,4 +17,4 @@ alloc=["embedded-io-async/alloc","mutex_trait2/alloc"]
 members = ["mutex_trait2"]
 
 [workspace.dependencies]
-mutex_trait2 = {path="./mutex_trait2"}
+mutex_trait2 = {path="./mutex_trait2",version="0.2.1"}
