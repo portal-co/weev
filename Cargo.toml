@@ -2,6 +2,8 @@
 name = "weev"
 version = "0.1.0"
 edition = "2021"
+description = "Small and embeddable no_std multiplexer"
+license = "CC0"
 
 [dependencies]
 embedded-io-async = "0.6.1"
