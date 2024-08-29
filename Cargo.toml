@@ -1,11 +1,12 @@
 [package]
 name = "weev"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 description = "Small and embeddable no_std multiplexer"
 license = "CC0-1.0"
 
 [dependencies]
+embedded-io = "0.6.1"
 embedded-io-async = "0.6.1"
 mutex_trait2.workspace = true
 
@@ -17,4 +18,4 @@ alloc=["embedded-io-async/alloc","mutex_trait2/alloc"]
 members = ["mutex_trait2"]
 
 [workspace.dependencies]
-mutex_trait2 = {path="./mutex_trait2",version="0.2.1"}
+mutex_trait2 = {path="./mutex_trait2",version="0.3.0"}

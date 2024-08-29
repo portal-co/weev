@@ -1,6 +1,6 @@
 #![no_std]
 
-use core::ops::DerefMut;
+use core::{future::Future, ops::DerefMut};
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -19,4 +19,9 @@ impl<T> Mutex for std::sync::Mutex<T> {
     fn lock(&self) -> impl DerefMut<Target = Self::Data> {
         std::sync::Mutex::lock(self).expect("poison")
     }
+}
+
+pub trait AsyncMutex{
+    type Data;
+    fn lock(&self) -> impl Future<Output: DerefMut<Target = Self::Data>>;
 }
