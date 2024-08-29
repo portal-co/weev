@@ -1,0 +1,11 @@
+[package]
+name = "weev"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+embedded-io-async = "0.6.1"
+
+[features]
+std=["alloc","embedded-io-async/std"]
+alloc=["embedded-io-async/alloc"]
