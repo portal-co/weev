@@ -1,6 +1,6 @@
 [package]
 name = "weev"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Small and embeddable no_std multiplexer"
 license = "CC0-1.0"
