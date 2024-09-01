@@ -1,6 +1,6 @@
 [package]
 name = "mutex_trait2"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 description = "Generic mutex trait"
 license = "CC0-1.0"
