@@ -6,7 +6,9 @@ description = "Generic mutex trait"
 license = "CC0-1.0"
 
 [dependencies]
+futures = { version = "0.3.30", optional = true }
 
 [features]
 std=["alloc"]
 alloc=[]
+futures = ["dep:futures","std"]

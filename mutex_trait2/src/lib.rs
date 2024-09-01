@@ -25,3 +25,13 @@ pub trait AsyncMutex{
     type Data;
     fn lock(&self) -> impl Future<Output: DerefMut<Target = Self::Data>>;
 }
+#[cfg(feature = "futures")]
+impl<T> AsyncMutex for futures::lock::Mutex<T>{
+    type Data = T;
+
+    fn lock(&self) -> impl Future<Output: DerefMut<Target = Self::Data>> {
+        async move{
+            self.lock().await
+        }
+    }
+}
