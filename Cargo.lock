@@ -170,7 +170,7 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "mutex_trait2"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "embassy-sync",
  "futures",
@@ -240,7 +240,7 @@ checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
 
 [[package]]
 name = "weev"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "embedded-io",
  "embedded-io-async",
