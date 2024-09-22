@@ -13,17 +13,16 @@ extern crate std;
 
 pub type Sid = [u8; 32];
 pub trait AsyncSock:
-    Deref<Target: AsyncMutex<Data: Read<Error = Self::Error> + Write>> + Clone + ErrorType
+    Read + Write
 {
-    async fn send_packet(&self, s: Sid, x: &[u8]) -> Result<(), Self::Error>;
-    async fn recv_packet(&self, b: &mut [u8]) -> Result<(u16, Sid), ReadExactError<Self::Error>>;
+    async fn send_packet(&mut self, s: Sid, x: &[u8]) -> Result<(), Self::Error>;
+    async fn recv_packet(&mut self, b: &mut [u8]) -> Result<(u16, Sid), ReadExactError<Self::Error>>;
 }
-impl<T: Deref<Target: AsyncMutex<Data: Read<Error = Self::Error> + Write>> + Clone + ErrorType> AsyncSock
-    for T
-{
-    async fn send_packet(&self, s: Sid, x: &[u8]) -> Result<(), Self::Error> {
+impl<T: Read + Write> AsyncSock for T {
+    async fn send_packet(&mut self, s: Sid, x: &[u8]) -> Result<(), Self::Error> {
+        let mut lock = self;
         for x in x.chunks(0xffff) {
-            let mut lock = self.lock().await;
+            // let mut lock = self.lock().await;
             lock.write_all(&s).await?;
             lock.write_all(&u16::to_le_bytes(x.len() as u16)).await?;
             lock.write_all(x).await?;
@@ -31,8 +30,9 @@ impl<T: Deref<Target: AsyncMutex<Data: Read<Error = Self::Error> + Write>> + Clo
         Ok(())
     }
 
-    async fn recv_packet(&self, b: &mut [u8]) -> Result<(u16, Sid), ReadExactError<Self::Error>> {
-        let mut lock = self.lock().await;
+    async fn recv_packet(&mut self, b: &mut [u8]) -> Result<(u16, Sid), ReadExactError<Self::Error>> {
+        let mut lock = self;
+        // let mut lock = self.lock().await;
         let mut s = [0u8; 32];
         lock.read_exact(&mut s).await?;
         let mut l = [0u8; 2];
@@ -43,18 +43,19 @@ impl<T: Deref<Target: AsyncMutex<Data: Read<Error = Self::Error> + Write>> + Clo
     }
 }
 pub trait Sock:
-    Deref<Target: Mutex<Data: embedded_io::Read<Error = Self::Error> + embedded_io::Write>> + Clone + ErrorType
+    embedded_io::Read + embedded_io::Write
 {
-    fn send_packet(&self, s: Sid, x: &[u8]) -> Result<(), Self::Error>;
-    fn recv_packet(&self, b: &mut [u8]) -> Result<(u16, Sid), ReadExactError<Self::Error>>;
+    fn send_packet(&mut self, s: Sid, x: &[u8]) -> Result<(), Self::Error>;
+    fn recv_packet(&mut self, b: &mut [u8]) -> Result<(u16, Sid), ReadExactError<Self::Error>>;
 }
-impl<T: Deref<Target: Mutex<Data: embedded_io::Read<Error = Self::Error> + embedded_io::Write>> + Clone + ErrorType> Sock
-    for T
+impl<
+        T: embedded_io::Read + embedded_io::Write,
+    > Sock for T
 {
-    fn send_packet(&self, s: Sid, x: &[u8]) -> Result<(), Self::Error> {
+    fn send_packet(&mut self, s: Sid, x: &[u8]) -> Result<(), Self::Error> {
         use embedded_io::Write;
+        let mut lock = self;
         for x in x.chunks(0xffff) {
-            let mut lock = self.lock();
             lock.write_all(&s)?;
             lock.write_all(&u16::to_le_bytes(x.len() as u16))?;
             lock.write_all(x)?;
@@ -62,9 +63,9 @@ impl<T: Deref<Target: Mutex<Data: embedded_io::Read<Error = Self::Error> + embed
         Ok(())
     }
 
-    fn recv_packet(&self, b: &mut [u8]) -> Result<(u16, Sid), ReadExactError<Self::Error>> {
+    fn recv_packet(&mut self, b: &mut [u8]) -> Result<(u16, Sid), ReadExactError<Self::Error>> {
         use embedded_io::Read;
-        let mut lock = self.lock();
+        let mut lock = self;
         let mut s = [0u8; 32];
         lock.read_exact(&mut s)?;
         let mut l = [0u8; 2];
@@ -74,12 +75,12 @@ impl<T: Deref<Target: Mutex<Data: embedded_io::Read<Error = Self::Error> + embed
         Ok((l, s))
     }
 }
-pub trait Queue{
+pub trait Queue {
     fn push(&mut self, s: Sid, a: &[u8]);
     fn pop(&mut self, s: Sid, len: usize) -> impl Iterator<Item = u8>;
 }
 #[cfg(feature = "alloc")]
-impl Queue for alloc::collections::BTreeMap<Sid,alloc::vec::Vec<u8>>{
+impl Queue for alloc::collections::BTreeMap<Sid, alloc::vec::Vec<u8>> {
     fn push(&mut self, s: Sid, a: &[u8]) {
         self.entry(s).or_default().extend_from_slice(a);
     }
@@ -89,86 +90,90 @@ impl Queue for alloc::collections::BTreeMap<Sid,alloc::vec::Vec<u8>>{
     }
 }
 #[derive(Clone)]
-pub struct Core<S,Q>{
+pub struct Core<S, Q> {
     pub sock: S,
     pub queue: Q,
 }
-impl<S: Clone,Q: Clone> Core<S,Q>{
-    pub fn stream(&self, a: Sid) -> Stream<S,Q>{
-        Stream{
+impl<S: Clone, Q: Clone> Core<S, Q> {
+    pub fn stream(&self, a: Sid) -> Stream<S, Q> {
+        Stream {
             core: self.clone(),
             sid: a,
         }
     }
 }
-impl<S: AsyncSock,Q: Deref<Target: AsyncMutex<Data: Queue>> + Clone> Core<S,Q>{
-    pub async fn write_async(&self, s: Sid, x: &[u8]) -> Result<(),S::Error>{
+impl<S: AsyncSock, Q: Queue> Core<S, Q> {
+    pub async fn write_async(&mut self, s: Sid, x: &[u8]) -> Result<(), S::Error> {
         self.sock.send_packet(s, x).await
     }
-    pub async fn read_async(&self, s: Sid, mut a: &mut [u8]) -> Result<(),ReadExactError<S::Error>>{
-        let mut lock = self.queue.lock().await;
-        loop{
+    pub async fn read_async(
+        &mut self,
+        s: Sid,
+        mut a: &mut [u8],
+    ) -> Result<(), ReadExactError<S::Error>> {
+        let mut lock = &mut self.queue;
+        loop {
             let mut i = 0;
-            for (q,x) in lock.pop(s,a.len()).zip(a.iter_mut()){
+            for (q, x) in lock.pop(s, a.len()).zip(a.iter_mut()) {
                 *x = q;
                 i += 1;
-            };
+            }
             a = &mut a[i..];
-            if a.len() == 0{
+            if a.len() == 0 {
                 return Ok(());
             }
-            let mut b = [0u8;65536];
-            let (a,s) = self.sock.recv_packet(&mut b).await?;
+            let mut b = [0u8; 65536];
+            let (a, s) = self.sock.recv_packet(&mut b).await?;
             lock.push(s, &b[..(a as usize)]);
         }
     }
 }
-impl<S: Sock,Q: Deref<Target: Mutex<Data: Queue>> + Clone> Core<S,Q>{
-    pub fn write(&self, s: Sid, x: &[u8]) -> Result<(),S::Error>{
+impl<S: Sock, Q: Queue> Core<S, Q> {
+    pub fn write(&mut self, s: Sid, x: &[u8]) -> Result<(), S::Error> {
         self.sock.send_packet(s, x)
     }
-    pub fn read(&self, s: Sid, mut a: &mut [u8]) -> Result<(),ReadExactError<S::Error>>{
-        let mut lock = self.queue.lock();
-        loop{
+    pub fn read(&mut self, s: Sid, mut a: &mut [u8]) -> Result<(), ReadExactError<S::Error>> {
+        let mut lock = &mut self.queue;
+        loop {
             let mut i = 0;
-            for (q,x) in lock.pop(s,a.len()).zip(a.iter_mut()){
+            for (q, x) in lock.pop(s, a.len()).zip(a.iter_mut()) {
                 *x = q;
                 i += 1;
-            };
+            }
             a = &mut a[i..];
-            if a.len() == 0{
+            if a.len() == 0 {
                 return Ok(());
             }
-            let mut b = [0u8;65536];
-            let (a,s) = self.sock.recv_packet(&mut b)?;
+            let mut b = [0u8; 65536];
+            let (a, s) = self.sock.recv_packet(&mut b)?;
             lock.push(s, &b[..(a as usize)]);
         }
     }
 }
 #[derive(Clone)]
-pub struct Stream<S,Q>{
-    pub core: Core<S,Q>,
+pub struct Stream<S, Q> {
+    pub core: Core<S, Q>,
     pub sid: Sid,
 }
-impl<S: ErrorType,Q> ErrorType for Stream<S,Q>{
+impl<S: ErrorType, Q> ErrorType for Stream<S, Q> {
     type Error = S::Error;
 }
-impl<S: AsyncSock,Q: Deref<Target: AsyncMutex<Data: Queue>> + Clone> Write for Stream<S,Q>{
+impl<S: AsyncSock, Q: Queue> Write for Stream<S, Q> {
     async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         self.core.write_async(self.sid, buf).await?;
         Ok(buf.len())
     }
 }
-impl<S: AsyncSock,Q: Deref<Target: AsyncMutex<Data: Queue>> + Clone> Read for Stream<S,Q>{
+impl<S: AsyncSock, Q: Queue> Read for Stream<S, Q> {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        match self.core.read_async(self.sid, buf).await{
+        match self.core.read_async(self.sid, buf).await {
             Ok(_) => return Ok(buf.len()),
             Err(ReadExactError::Other(e)) => return Err(e),
-            Err(ReadExactError::UnexpectedEof) => return Ok(0)
+            Err(ReadExactError::UnexpectedEof) => return Ok(0),
         }
     }
 }
-impl<S: Sock,Q: Deref<Target: Mutex<Data: Queue>> + Clone> embedded_io::Write for Stream<S,Q>{
+impl<S: Sock, Q: Queue> embedded_io::Write for Stream<S, Q> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         self.core.write(self.sid, buf)?;
         Ok(buf.len())
@@ -178,12 +183,12 @@ impl<S: Sock,Q: Deref<Target: Mutex<Data: Queue>> + Clone> embedded_io::Write fo
         Ok(())
     }
 }
-impl<S: Sock,Q: Deref<Target: Mutex<Data: Queue>> + Clone> embedded_io::Read for Stream<S,Q>{
+impl<S: Sock, Q: Queue> embedded_io::Read for Stream<S, Q> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        match self.core.read(self.sid, buf){
+        match self.core.read(self.sid, buf) {
             Ok(_) => return Ok(buf.len()),
             Err(ReadExactError::Other(e)) => return Err(e),
-            Err(ReadExactError::UnexpectedEof) => return Ok(0)
+            Err(ReadExactError::UnexpectedEof) => return Ok(0),
         }
     }
 }
