@@ -1,7 +1,7 @@
 #![no_std]
 
 use core::{cell::LazyCell, future::Future, ops::{Deref, DerefMut}};
-use std::borrow::{Cow, ToOwned};
+// use std::borrow::{Cow, ToOwned};
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -41,20 +41,7 @@ impl<'a,T: AsyncMutex> AsyncMutex for &'a T{
         (**self).lock()
     }
 }
-impl<'a,T: Mutex + ToOwned> Mutex for Cow<'a,T>{
-    type Data = T::Data;
 
-    fn lock(&self) -> impl DerefMut<Target = Self::Data> {
-        (**self).lock()
-    }
-}
-impl<'a,T: AsyncMutex + ToOwned> AsyncMutex for Cow<'a,T>{
-    type Data = T::Data;
-
-    fn lock(&self) -> impl Future<Output: DerefMut<Target = Self::Data>> {
-        (**self).lock()
-    }
-}
 impl<T: Mutex,F: FnOnce() -> T> Mutex for LazyCell<T,F>{
     type Data = T::Data;
 
@@ -93,9 +80,24 @@ const _: () = {
     use alloc::rc::Rc;
 
     use alloc::sync::Arc;
+    use alloc::borrow::*;
 
     type_param_deref_mutex!(Arc);
     type_param_deref_mutex!(Rc);
+    impl<'a,T: Mutex + ToOwned> Mutex for Cow<'a,T>{
+        type Data = T::Data;
+    
+        fn lock(&self) -> impl DerefMut<Target = Self::Data> {
+            (**self).lock()
+        }
+    }
+    impl<'a,T: AsyncMutex + ToOwned> AsyncMutex for Cow<'a,T>{
+        type Data = T::Data;
+    
+        fn lock(&self) -> impl Future<Output: DerefMut<Target = Self::Data>> {
+            (**self).lock()
+        }
+    }
 };
 #[cfg(feature = "std")]
 const _: () = {
