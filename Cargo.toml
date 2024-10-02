@@ -8,11 +8,17 @@ license = "CC0-1.0"
 [dependencies]
 embedded-io = "0.6.1"
 embedded-io-async = "0.6.1"
+futures-lite = { version = "2.3.0", default-features = false }
 mutex_trait2.workspace = true
+once_map = { version = "0.4.19", optional = true, default-features = false, features = ["ahash"] }
+whisk = { version = "0.13.0", optional = true, features = ["futures_core_3"] }
+
 
 [features]
-std=["alloc","embedded-io-async/std","mutex_trait2/std"]
-alloc=["embedded-io-async/alloc","mutex_trait2/alloc"]
+std=["alloc","embedded-io-async/std","mutex_trait2/std","futures-lite/std"]
+alloc=["embedded-io-async/alloc","mutex_trait2/alloc","futures-lite/alloc"]
+whisk = ["dep:whisk"]
+once_map = ["dep:once_map"]
 
 [workspace]
 members = ["mutex_trait2"]

@@ -170,3 +170,47 @@ impl<T: Clone> AsyncMutex for PreShared<T>{
         core::future::ready(self.clone())
     }
 }
+#[derive(Clone)]
+pub struct M<T>(pub T);
+#[derive(Clone)]
+pub struct AM<T>(pub T);
+#[cfg(feature = "embedded-io")]
+const _: () = {
+    impl<T: Mutex<Data: embedded_io::ErrorType>> embedded_io::ErrorType for M<T>{
+        type Error = <T::Data as embedded_io::ErrorType>::Error;
+    }
+    impl<T: Mutex<Data: embedded_io::Read>> embedded_io::Read for M<T>{
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+            self.0.lock().read(buf)
+        }
+    }
+    impl<T: Mutex<Data: embedded_io::Write>> embedded_io::Write for M<T>{
+        fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+            self.0.lock().write(buf)
+        }
+    
+        fn flush(&mut self) -> Result<(), Self::Error> {
+            self.0.lock().flush()
+        }
+    }
+};
+#[cfg(feature = "embedded-io-async")]
+const _: () = {
+    impl<T: AsyncMutex<Data: embedded_io_async::ErrorType>> embedded_io_async::ErrorType for AM<T>{
+        type Error = <T::Data as embedded_io_async::ErrorType>::Error;
+    }
+    impl<T: AsyncMutex<Data: embedded_io_async::Read>> embedded_io_async::Read for AM<T>{
+        async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+            self.0.lock().await.read(buf).await
+        }
+    }
+    impl<T: AsyncMutex<Data: embedded_io_async::Write>> embedded_io_async::Write for AM<T>{
+        async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+            self.0.lock().await.write(buf).await
+        }
+    
+        async fn flush(&mut self) -> Result<(), Self::Error> {
+            self.0.lock().await.flush().await
+        }
+    }
+};
