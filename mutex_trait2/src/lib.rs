@@ -123,9 +123,7 @@ impl<T> AsyncMutex for futures::lock::Mutex<T>{
     type Data = T;
 
     fn lock(&self) -> impl Future<Output: DerefMut<Target = Self::Data>> {
-        async move{
-            self.lock().await
-        }
+        self.lock()
     }
 }
 #[cfg(feature = "embassy-sync")]
@@ -135,6 +133,16 @@ const _: () = {
     impl<M: RawMutex,T> AsyncMutex for embassy_sync::mutex::Mutex<M,T>{
         type Data = T;
     
+        fn lock(&self) -> impl Future<Output: DerefMut<Target = Self::Data>> {
+            self.lock()
+        }
+    }
+};
+#[cfg(feature = "no-std-async")]
+const _: () = {
+    impl <T> AsyncMutex for no_std_async::Mutex<T>{
+        type Data = T;
+        
         fn lock(&self) -> impl Future<Output: DerefMut<Target = Self::Data>> {
             self.lock()
         }
