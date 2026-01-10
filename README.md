@@ -1,13 +1,14 @@
 # weev
 
 ## Description
-Project weev
+"Small and embeddable no_std multiplexer". A library for stream multiplexing in constrained environments.
 
 ## Goals
-- [ ] Add project goals
+- [ ] Multiplex streams
+- [ ] Support `no_std`
 
 ## Progress
-- [ ] Initial setup
+- [ ] Crate setup with `mutex_trait2`
 
 ---
 *AI assisted*
